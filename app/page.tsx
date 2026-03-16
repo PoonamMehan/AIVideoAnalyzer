@@ -1,65 +1,116 @@
-import Image from "next/image";
+'use client'
+import { useEffect, useState } from "react";
+import { Loader2, Plus } from "lucide-react";
 
 export default function Home() {
+  const [vid, setVid] = useState<File | null>(null);
+  const [description, setDescription] = useState<string>("");
+  const [previewUrl, setPreviewUrl] = useState<string>("");
+  const [loading, setLoading] = useState(false);
+
+  useEffect(()=>{
+    if(vid){
+      setLoading(true);
+      setDescription("");
+
+      const url = URL.createObjectURL(vid);
+      setPreviewUrl(url);
+
+    (async()=>{
+      console.log("Video: ", vid);
+      console.log("Video info: ", vid.name);
+
+      // get pre signed url   
+      const presignedURLResponse = await fetch("/api/get-presigned-url", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          fileName: vid.name,
+          contentType: vid.type //withput it it might work
+        })
+      })
+      if(!presignedURLResponse.ok){
+        console.log("Unable to store video to Storage.");
+        setDescription("Error while generating the answer.")
+        return;
+      }
+      const presignedURLToStoreVideo = await presignedURLResponse.json();
+      console.log("Presigned URL: ", presignedURLToStoreVideo);
+
+      
+      //store the video in s3 
+      const videoStoredResponse = await fetch(presignedURLToStoreVideo.presignedUrl, {
+        body: vid,
+        method: "PUT",
+        headers: {
+          "Content-Type": vid.type
+        }
+      })
+
+      if(!videoStoredResponse.ok){
+        console.log("Video not stored in S3 successfully.");
+        setDescription("Error while generating the answer.")
+        return;
+      }
+      
+      console.log("Video stored successfully.",videoStoredResponse); 
+
+      //send fetch request to generate answer 
+      const generateAnswerResponse = await fetch("/api/generate-answer", {
+        body: JSON.stringify({
+          key: presignedURLToStoreVideo.key,
+          contentType: vid.type
+        }),
+        method: "POST",
+        headers: {
+          'Content-Type': "application/json"
+        }
+      })
+      if(!generateAnswerResponse.ok){
+        console.log("Description not generated Successfully.");
+        setDescription("Error while generating the answer.")
+        setLoading(false);
+        return;
+      }
+      const generatedAnswer = await generateAnswerResponse.json();
+
+      // setDescription()
+      if(generatedAnswer){
+        setDescription(generatedAnswer.description);
+      }
+      setLoading(false);
+    })();
+  }
+  }, [vid])
+
+
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+    <div className="flex flex-col items-center justify-center min-h-screen gap-8 p-8 bg-[#0a0a0a]">
+      <h1 className="font-semibold text-white/90 text-3xl">Video Analyzer</h1>
+
+      <label className="group cursor-pointer flex flex-col items-center justify-center w-full max-w-xl h-40 rounded-2xl border-2 border-dashed border-white/20 hover:border-white/40 bg-white/5 hover:bg-white/10 transition-all duration-300">
+        <div className="flex flex-col items-center gap-3 text-white/40 group-hover:text-white/70 transition-all">
+            <div className="w-12 h-12 rounded-full border-2 border-current flex items-center justify-center">
+              <Plus size={22} />
+            </div>
+            <span className="text-sm font-medium">
+              {vid ? vid.name : "Upload a video"}
+            </span>
+          </div>
+        <input type="file" accept="video/mp4" onChange={e => setVid((e.target.files)? e.target.files[0] : null)} className="cursor-poitner hidden"></input>
+      </label>
+
+      {vid && <video src={previewUrl} autoPlay className="w-full max-w-2xl aspect-video object-contain rounded-md border-2" ></video>}
+      {loading && <Loader2 className="animate-spin" />}
+      <p className="text-white/70 text-lg max-w-5xl text-center">{description}</p>
     </div>
   );
 }
+
+
+
+// generate presigned url
+// store to s3
+// send file id to server
+// send the id to it to Gogle gemini api -> ggenerate response -> frontend 
