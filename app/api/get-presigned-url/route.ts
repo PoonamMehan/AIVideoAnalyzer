@@ -19,7 +19,6 @@ export async function POST(req: NextRequest){
     });
 
     const presignedUrl = await getSignedUrl(s3, command, { expiresIn: 300 });
-    console.log("Generated presigned url to store the video: ", presignedUrl);
 
     return NextResponse.json({ success: true, presignedUrl, key }, {status: 200});
   }  

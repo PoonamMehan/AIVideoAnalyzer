@@ -17,8 +17,6 @@ export default function Home() {
       setPreviewUrl(url);
 
     (async()=>{
-      console.log("Video: ", vid);
-      console.log("Video info: ", vid.name);
 
       // get pre signed url   
       const presignedURLResponse = await fetch("/api/get-presigned-url", {
@@ -26,7 +24,7 @@ export default function Home() {
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({
           fileName: vid.name,
-          contentType: vid.type //withput it it might work
+          contentType: vid.type //without it it might work
         })
       })
       if(!presignedURLResponse.ok){
@@ -35,7 +33,6 @@ export default function Home() {
         return;
       }
       const presignedURLToStoreVideo = await presignedURLResponse.json();
-      console.log("Presigned URL: ", presignedURLToStoreVideo);
 
       
       //store the video in s3 
@@ -53,7 +50,6 @@ export default function Home() {
         return;
       }
       
-      console.log("Video stored successfully.",videoStoredResponse); 
 
       //send fetch request to generate answer 
       const generateAnswerResponse = await fetch("/api/generate-answer", {
@@ -107,10 +103,3 @@ export default function Home() {
     </div>
   );
 }
-
-
-
-// generate presigned url
-// store to s3
-// send file id to server
-// send the id to it to Gogle gemini api -> ggenerate response -> frontend 

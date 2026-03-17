@@ -16,6 +16,7 @@ try{
   console.log(e);
 }
 
+// get the key from FE -> generate presigned url to GET video -> google gemini request -> response to FE
 export async function POST(request: NextRequest){
   const body = await request.json();
   const {key, contentType} = body;
@@ -25,7 +26,6 @@ export async function POST(request: NextRequest){
       Key: key
     });
     const readURL = await getSignedUrl(s3, command, {expiresIn: 300});
-    console.log("GEt presigned url: ", readURL);
 
     const response = await ai?.models.generateContent({
       model: "gemini-2.5-flash",
@@ -34,14 +34,9 @@ export async function POST(request: NextRequest){
         "Describe the video in 5 sentences.",
       ]),
     });
-    console.log("Response from gemini: ", response);
-    console.log("asnwerrrrrr", response.text);
     return NextResponse.json({description: response.text}, {status: 200});
   }else{
     return NextResponse.json({success: false}, {status: 500})
   }
 
 }
-
-
-// get the key from FE -> generate presigned url to GET video -> google gemini request -> response to FE
